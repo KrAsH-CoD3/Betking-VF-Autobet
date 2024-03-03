@@ -107,8 +107,8 @@ async def run(playwright: Playwright):
             live_mth_week: str = await betking_tab.locator(all_weeks_container_xpath).nth(0).inner_text()
             print(f"{live_mth_week} is live already.\nWaiting for match to end.")
             await expect(betking_tab.locator(live_mth_xpath)).not_to_be_visible(timeout=default_timeout * 2)  # Live match duration is 30 secs
-            print("Getting new week prediction.")
-            weekday += 1
+            print("Waiting for new week prediction...")
+            weekday = int(live_mth_week.split(' ')[1]) + 1
         return [match_live, weekday]
 
     await log_in_betking()
@@ -119,7 +119,13 @@ async def run(playwright: Playwright):
     weekday = await pred_day() 
 
     # Check if match is live
-    await match_is_live(weekday)
+    live, weekday = await match_is_live(weekday)
+    if not live: 
+        bk_nxt_mth_week: int = int(str(
+            await betking_tab.locator(all_weeks_container_xpath).nth(0).inner_text()).split(' ')[1])
+        if weekday != bk_nxt_mth_week: 
+            print("Old weekday prediction still displayed.\nWaiting for new prediction...")
+            weekday += 1
 
     # SEASON GAMES
     while True:
@@ -139,16 +145,16 @@ async def run(playwright: Playwright):
             # FIRST CHECK: if live match is live
             live, weekday = await match_is_live(weekday)
             if live: continue
-            await realnaps_tab.close()
             mthTimer: datetime = datetime.strptime(await mth_timer(), "%M:%S").time()
             timeout: datetime = datetime.strptime("00:00", "%M:%S").time()
             rem_time: timedelta = timedelta(hours=mthTimer.hour, minutes=mthTimer.minute, seconds=mthTimer.second) - timedelta(
                 hours=timeout.hour, minutes=timeout.minute, seconds=timeout.second)
             str_rem_time: str = str(rem_time)
             if rem_time.total_seconds() < 10:
-                print("Too late to place bet.\nGetting new prediction")
+                print("Too late to place bet.\nWaiting for new prediction...")
                 weekday += 1
                 continue
+            await realnaps_tab.close()
             print(match_info)
             table = betking_tab.locator(f'//div[@class="body"]').nth(1)
             odds: list = str(await table.locator(
