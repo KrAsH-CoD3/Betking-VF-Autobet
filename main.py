@@ -35,6 +35,10 @@ async def run(playwright: Playwright):
 
     balance_xpath: str = '//div[@class="user-balance-container"]'
     betking_virtual: str = 'https://m.betking.com/virtual/league/kings-league'
+    rem_odds_xpath: str = '/../following-sibling::mvs-match-odds//div[@class="odds"]'
+    all_weeks_container_xpath: str = '//div[@class="week-container ng-star-inserted"]//child::div' 
+    upcoming_week_xpath: str = '//div[@class="week ng-star-inserted active"]' 
+    realnaps_betking: str = "https://realnaps.com/signal/premium/ultra/betking-kings-league.php"
     Betking_mth_cntdown_xpath: str = '//span[@class="countdown-timer ng-star-inserted"]'
     live_mth_xpath: str = '//div[@class="live-badge ng-star-inserted" and contains(text(), "LIVE")]'
     betslip_xpath: str = '//span[@class="title ng-star-inserted" and contains(text(), "Betslip")]'
@@ -42,7 +46,7 @@ async def run(playwright: Playwright):
     
     async def log_in_betking():
         if betking_tab.url != betking_virtual:
-            await betking_tab.goto(betking_virtual, wait_until="load")
+            await betking_tab.goto(betking_virtual, wait_until="load", timeout=default_timeout * 2)
             await expect(betking_tab.locator('//loading-spinner')).to_have_attribute("style", "display: none;")
         login_btn = betking_tab.get_by_role('button', name='LOGIN')
         not_logged_in = await login_btn.is_visible(timeout=1 * 1000)
@@ -55,7 +59,9 @@ async def run(playwright: Playwright):
             # Waits for Pop up to be visible 
             await expect(betking_tab.locator(login_success_popup_xpath)).to_be_visible(timeout=default_timeout)
             await expect(betking_tab.locator(balance_xpath)).to_be_visible(timeout=default_timeout)
-            await betking_tab.get_by_test_id("o/u-2.5-market").click()
+            print("Successfully logged in.")
+        else: print("Already logged in.")
+        await betking_tab.get_by_test_id("o/u-2.5-market").click()
     
     async def get_team() -> list:
         hometeam: str = await realnaps_tab.inner_text('//div[@id="homeTxt" and @class="col"]')
@@ -67,7 +73,8 @@ async def run(playwright: Playwright):
         return realnaps_tab.locator(f'//a[@class="swift" and @name="{position}"]')
 
     async def mth_timer() -> str:
-        return await betking_tab.locator(Betking_mth_cntdown_xpath).inner_text()
+        timer: str = await betking_tab.locator(Betking_mth_cntdown_xpath).inner_text()
+        return timer.strip()
     
     async def pred_day() -> int: 
         weekday: str = await realnaps_tab.inner_text('//span[@id="day"]')
@@ -94,22 +101,25 @@ async def run(playwright: Playwright):
         await team_slide.click()
         print(f"We are working with team {current_season_dot_pos + 1} this season.")
 
-    weekday = await pred_day()
-    
+    async def match_is_live(weekday) -> list[bool, int] :
+        match_live: bool = await betking_tab.locator(live_mth_xpath).is_visible(timeout=0)
+        if match_live:
+            live_mth_week: str = await betking_tab.locator(all_weeks_container_xpath).nth(0).inner_text()
+            print(f"{live_mth_week} is live already.\nWaiting for match to end.")
+            await expect(betking_tab.locator(live_mth_xpath)).not_to_be_visible(timeout=default_timeout * 2)  # Live match duration is 30 secs
+            print("Getting new week prediction.")
+            weekday += 1
+        return [match_live, weekday]
 
     await log_in_betking()
     
     # Opens Realnaps
     realnaps_tab = await context.new_page()
-    await realnaps_tab.goto("https://realnaps.com/signal/premium/ultra/Betking-england-league.php", wait_until="commit")
+    await realnaps_tab.goto(realnaps_betking, wait_until="commit")
+    weekday = await pred_day() 
 
-    match_is_live: bool = await betking_tab.locator(live_mth_xpath).is_visible(timeout=0)
-    if match_is_live:
-        expect(betking_tab.locator(live_mth_xpath)).not_to_be_visible(timeout=default_timeout * 2)
-
-
-
-        
+    # Check if match is live
+    await match_is_live(weekday)
 
     # SEASON GAMES
     while True:
@@ -123,8 +133,33 @@ async def run(playwright: Playwright):
             
             team: list = await get_team()
             match_info: str = f"{'-'*10}Week {str(weekday)}{'-'*10}\nTeam: {team[0]} vs. {team[1]}"
-            print(match_info)
             
+            await betking_tab.bring_to_front()
+
+            # FIRST CHECK: if live match is live
+            live, weekday = await match_is_live(weekday)
+            if live: continue
+            await realnaps_tab.close()
+            mthTimer: datetime = datetime.strptime(await mth_timer(), "%M:%S").time()
+            timeout: datetime = datetime.strptime("00:00", "%M:%S").time()
+            rem_time: timedelta = timedelta(hours=mthTimer.hour, minutes=mthTimer.minute, seconds=mthTimer.second) - timedelta(
+                hours=timeout.hour, minutes=timeout.minute, seconds=timeout.second)
+            str_rem_time: str = str(rem_time)
+            if rem_time.total_seconds() < 10:
+                print("Too late to place bet.\nGetting new prediction")
+                weekday += 1
+                continue
+            print(match_info)
+            table = betking_tab.locator(f'//div[@class="body"]').nth(1)
+            odds: list = str(await table.locator(
+                f'//div[contains(text(), "{team[0]}")]{rem_odds_xpath}').inner_text()).split('\n')
+            if str_rem_time.split(":")[1] == "00":
+                print(f'Weekday {str(weekday)} odd: {odds[0]}\nCountdown time is {str_rem_time.split(":")[2]} seconds.')
+            else:
+                print(f'Weekday {str(weekday)} odd: {odds[0]}\nCountdown time is {str_rem_time.split(":")[1]}:{str_rem_time.split(":")[2]}')
+            input("End of code: ")
+
+
     
 async def main():
     async with async_playwright() as playwright:
