@@ -158,7 +158,7 @@ async def run(playwright: Playwright):
             rem_time: timedelta = timedelta(hours=mthTimer.hour, minutes=mthTimer.minute, seconds=mthTimer.second) - timedelta(
                 hours=timeout.hour, minutes=timeout.minute, seconds=timeout.second)
             str_rem_time: str = str(rem_time)
-            if rem_time.total_seconds() < 10:
+            if rem_time.total_seconds() < 2:
                 print(f"Too late to place Week {rn_weekday} bet.\nWaiting for new prediction...")
                 rn_weekday += 1
                 continue
@@ -186,21 +186,28 @@ async def run(playwright: Playwright):
             print("Match started...")
             bet_won = betking_tab.locator('//div[@class="dot won"]')
             bet_lost = betking_tab.locator('//div[@class="dot lost"]')
-            await expect(bet_won.or_(bet_lost)).to_be_visible(timeout=default_timeout * 2) # 1 MINUTE
-            try:
-                await expect(bet_won).to_be_visible(timeout=0)
-                print(f"Match Week {str(rn_weekday)} WON!")
-                stakeAmt = 200  # Return back to initial stake amount
-            except AssertionError:
-                print(f"Match Week {str(rn_weekday)} LOST!")
-                stakeAmt *= 2  # Double the previous stake amount
+            # await expect(bet_won.or_(bet_lost)).to_be_visible(timeout=default_timeout * 2) # 1 MINUTE
+            while True:
+                try:
+                    await expect(bet_won).to_be_visible(timeout=0)
+                    print(f"Match Week {str(rn_weekday)} WON!")
+                    stakeAmt = 200  # Return back to initial stake amount
+                    break
+                except AssertionError:
+                    try:
+                        await expect(bet_lost).to_be_visible(timeout=0)
+                        print(f"Match Week {str(rn_weekday)} LOST!")
+                        stakeAmt *= 2  # Double the previous stake amount
+                        break
+                    except AssertionError: continue
+                # finally: 
 
             await log_in_betking()  # Refresh the page
             realnaps_tab = await context.new_page()
             await realnaps_tab.goto(realnaps_betking, wait_until="commit")
-            if weekday != 33: weekday += 1
+            if rn_weekday != 33: rn_weekday += 1
             else: # STOP AT WEEKDAY 33 CUS OF LAW OF DIMINISING RETURN
-                weekday = 1
+                rn_weekday = 1
                 print(f"WEEK 33 MEANS END OF SEASON FOR US.\nWAITING FOR NEW SEASON TO BEGIN...")
                 await asyncio.sleep(60 * 15)
                 print(f"\n{'-'*10}NEW SEASON BEGINS{'-'*10}\nWAITING FOR NEW SEASON PREDICTIONS")
