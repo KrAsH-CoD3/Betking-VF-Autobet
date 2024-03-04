@@ -73,22 +73,26 @@ async def run(playwright: Playwright):
         return realnaps_tab.locator(f'//a[@class="swift" and @name="{position}"]')
 
     async def mth_timer() -> str:
+        betking_tab.set_default_timeout(0)
         timer: str = await betking_tab.locator(Betking_mth_cntdown_xpath).inner_text()
+        betking_tab.set_default_timeout(default_timeout)
         return timer.strip()
     
     async def pred_day() -> int: 
-        weekday: str = await realnaps_tab.inner_text('//span[@id="day"]')
-        if weekday == '...':
+        weekday_rn: str = await realnaps_tab.inner_text('//span[@id="day"]')
+        if weekday_rn == '...':
             print("Waiting for predictions...")
             await expect(realnaps_tab.locator('//span[@id="day"]')
                         ).not_to_contain_text('...', timeout=default_timeout * 2)
             print(f"Prediction displayed.")
             return int(await realnaps_tab.inner_text('//span[@id="day"]'))
-        return int(weekday)
+        return int(weekday_rn)
     
     async def place_bet(): 
+        await betking_tab.locator(f'//div[contains(text(), "{team[0]}")]{rem_odds_xpath}').nth(0).click()
+        await betking_tab.locator(betslip_xpath).click()
         await betking_tab.get_by_test_id('coupon-totals-stake-reset').click()
-        await betking_tab.get_by_test_id('coupon-totals-stake-amount-value').fill(stakeAmt)
+        await betking_tab.get_by_test_id('coupon-totals-stake-amount-value').fill(str(stakeAmt))
         await betking_tab.locator('//span[contains(text(), "Place Bet")]').click()
         await expect(betking_tab.locator('//span[contains(text(), "Best of luck!")]')).to_be_visible(timeout=default_timeout)
         await betking_tab.locator('//span[contains(text(), "CONTINUE BETTING")]').click()
@@ -113,21 +117,23 @@ async def run(playwright: Playwright):
             weekday = int(live_mth_week.split(' ')[1]) + 1
         return [match_live, weekday]
 
+    async def bk_nxt_mth_week() -> int:
+        return int(str(await betking_tab.locator(all_weeks_container_xpath).nth(0).inner_text()).split(' ')[1])
+    
     await log_in_betking()
+
     
     # Opens Realnaps
     realnaps_tab = await context.new_page()
     await realnaps_tab.goto(realnaps_betking, wait_until="commit")
-    weekday = await pred_day() 
+    rn_weekday = await pred_day() 
 
     # Check if match is live
-    live, weekday = await match_is_live(weekday)
+    live, rn_weekday = await match_is_live(rn_weekday)
     if not live: 
-        bk_nxt_mth_week: int = int(str(
-            await betking_tab.locator(all_weeks_container_xpath).nth(0).inner_text()).split(' ')[1])
-        if weekday != bk_nxt_mth_week: 
-            print(f"Old weekday {weekday} prediction still displayed.\nWaiting for new prediction...")
-            weekday += 1
+        if rn_weekday != await bk_nxt_mth_week(): 
+            print(f"Old weekday {rn_weekday} prediction still displayed.\nWaiting for new prediction...")
+            rn_weekday += 1
 
     # SEASON GAMES
     while True:
@@ -137,15 +143,15 @@ async def run(playwright: Playwright):
         while True:
             # Get predicted team
             await realnaps_tab.bring_to_front()
-            if weekday != await pred_day(): continue
+            if rn_weekday != await pred_day(): continue
             
             team: list = await get_team()
-            match_info: str = f"{'-'*10}Week {str(weekday)}{'-'*10}\nTeam: {team[0]} vs. {team[1]}"
+            match_info: str = f"{'-'*10}Week {str(rn_weekday)}{'-'*10}\nTeam: {team[0]} vs. {team[1]}"
             
             await betking_tab.bring_to_front()
 
             # FIRST CHECK: if live match is live
-            live, weekday = await match_is_live(weekday)
+            live, rn_weekday = await match_is_live(rn_weekday)
             if live: continue
             mthTimer: datetime = datetime.strptime(await mth_timer(), "%M:%S").time()
             timeout: datetime = datetime.strptime("00:00", "%M:%S").time()
@@ -153,18 +159,25 @@ async def run(playwright: Playwright):
                 hours=timeout.hour, minutes=timeout.minute, seconds=timeout.second)
             str_rem_time: str = str(rem_time)
             if rem_time.total_seconds() < 10:
-                print(f"Too late to place Week {weekday} bet.\nWaiting for new prediction...")
-                weekday += 1
+                print(f"Too late to place Week {rn_weekday} bet.\nWaiting for new prediction...")
+                rn_weekday += 1
+                continue
+            elif rn_weekday != await bk_nxt_mth_week():
+                print(f"For some reason, Week {rn_weekday} match is past.\nWaiting for new prediction...")
+                rn_weekday += 1
                 continue
             await realnaps_tab.close()
             print(match_info)
+            # Should incase it not in o/u 2.5 tab
+            await betking_tab.get_by_test_id("o/u-2.5-market").click()
             table = betking_tab.locator(f'//div[@class="body"]').nth(1)
             odds: list = str(await table.locator(
                 f'//div[contains(text(), "{team[0]}")]{rem_odds_xpath}').inner_text()).split('\n')
             if str_rem_time.split(":")[1] == "00":
-                print(f'Weekday {str(weekday)} odd: {odds[0]}\nCountdown time is {str_rem_time.split(":")[2]} seconds.')
+                print(f'Weekday {str(rn_weekday)} odd: {odds[0]}\nCountdown time is {str_rem_time.split(":")[2]} seconds.')
             else:
-                print(f'Weekday {str(weekday)} odd: {odds[0]}\nCountdown time is {str_rem_time.split(":")[1]}:{str_rem_time.split(":")[2]}')
+                print(f'Weekday {str(rn_weekday)} odd: {odds[0]}\nCountdown time is {str_rem_time.split(":")[1]}:{str_rem_time.split(":")[2]}')
+            await place_bet()  # Place bet
             
             input("End of code: ")
 
