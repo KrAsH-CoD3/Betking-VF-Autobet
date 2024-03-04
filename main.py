@@ -120,9 +120,12 @@ async def run(playwright: Playwright):
     async def bk_nxt_mth_week() -> int:
         return int(str(await betking_tab.locator(all_weeks_container_xpath).nth(0).inner_text()).split(' ')[1])
     
+    async def balance_is_visible() -> bool : 
+        bal_is_visible: bool = await betking_tab.locator('//div[@class="user-balance-container"]').is_visible()
+        if not bal_is_visible: await log_in_betking()
+    
     await log_in_betking()
 
-    
     # Opens Realnaps
     realnaps_tab = await context.new_page()
     await realnaps_tab.goto(realnaps_betking, wait_until="commit")
@@ -168,7 +171,8 @@ async def run(playwright: Playwright):
                 continue
             await realnaps_tab.close()
             print(match_info)
-            # Should incase it not in o/u 2.5 tab
+
+            # Should incase it not in o/u 2.5 tab, click again
             await betking_tab.get_by_test_id("o/u-2.5-market").click()
             table = betking_tab.locator(f'//div[@class="body"]').nth(1)
             odds: list = str(await table.locator(
@@ -179,30 +183,25 @@ async def run(playwright: Playwright):
                 print(
                     f'Weekday {str(rn_weekday)} odd: {odds[0]}\nCountdown time is {str_rem_time.split(":")[1]}:{str_rem_time.split(":")[2]}')
             
+            await balance_is_visible()  # Refresh the page if not visible
             await place_bet()  # Place bet
             
             print(f"Waiting for match to begin...")
             await expect(betking_tab.locator('//div[@class="dot pending"]')).to_be_visible(timeout=default_timeout * 6)
             print("Match started...")
+
+            # Checking live result
             bet_won = betking_tab.locator('//div[@class="dot won"]')
             bet_lost = betking_tab.locator('//div[@class="dot lost"]')
-            # await expect(bet_won.or_(bet_lost)).to_be_visible(timeout=default_timeout * 2) # 1 MINUTE
-            while True:
-                try:
-                    await expect(bet_won).to_be_visible(timeout=0)
-                    print(f"Match Week {str(rn_weekday)} WON!")
-                    stakeAmt = 200  # Return back to initial stake amount
-                    break
-                except AssertionError:
-                    try:
-                        await expect(bet_lost).to_be_visible(timeout=0)
-                        print(f"Match Week {str(rn_weekday)} LOST!")
-                        stakeAmt *= 2  # Double the previous stake amount
-                        break
-                    except AssertionError: continue
-                # finally: 
+            await expect(bet_won.or_(bet_lost)).to_be_attached(timeout=default_timeout * 2) # Check every 1 seconds
+            if await bet_won.is_visible():
+                print(f"Match Week {str(rn_weekday)} WON!")
+                stakeAmt = 200  # Return back to initial stake amount
+            else:
+                print(f"Match Week {str(rn_weekday)} LOST!")
+                stakeAmt *= 2  # Double the previous stake amount
 
-            await log_in_betking()  # Refresh the page
+            await balance_is_visible()  # Refresh the page if not visible
             realnaps_tab = await context.new_page()
             await realnaps_tab.goto(realnaps_betking, wait_until="commit")
             if rn_weekday != 33: rn_weekday += 1
