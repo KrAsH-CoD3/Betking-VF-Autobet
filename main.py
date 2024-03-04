@@ -79,14 +79,11 @@ async def run(playwright: Playwright):
     async def pred_day() -> int: 
         weekday: str = await realnaps_tab.inner_text('//span[@id="day"]')
         if weekday == '...':
-            print("Waiting for preditions...")
+            print("Waiting for predictions...")
             await expect(realnaps_tab.locator('//span[@id="day"]')
                         ).not_to_contain_text('...', timeout=default_timeout * 2)
             print(f"Prediction displayed.")
             return int(await realnaps_tab.inner_text('//span[@id="day"]'))
-        elif weekday != bk_nxt_mth_week: # Old pred displayed running script for the first time.
-            if loop_times == 1: print("Old prediction displayed still.\nWaiting for new prediction to be displayed...")
-
         return int(weekday)
     
     async def place_bet(): 
@@ -109,7 +106,9 @@ async def run(playwright: Playwright):
         if match_live:
             live_mth_week: str = await betking_tab.locator(all_weeks_container_xpath).nth(0).inner_text()
             print(f"{live_mth_week} is live already.\nWaiting for match to end...")
-            await expect(betking_tab.locator(live_mth_xpath)).not_to_be_visible(timeout=default_timeout * 2)  # Live match duration is 30 secs
+            await expect(
+                betking_tab.locator(
+                    live_mth_xpath)).not_to_be_visible(timeout=default_timeout * 3)  # Live match duration is 30 secs
             print("Waiting for new week prediction...")
             weekday = int(live_mth_week.split(' ')[1]) + 1
         return [match_live, weekday]
@@ -134,14 +133,11 @@ async def run(playwright: Playwright):
     while True:
         # await select_team_slide()
 
-        loop_times: int = 1
         # WEEKDAY GAMES
         while True:
             # Get predicted team
             await realnaps_tab.bring_to_front()
-            if weekday != await pred_day(): 
-                loop_times += 1
-                continue
+            if weekday != await pred_day(): continue
             
             team: list = await get_team()
             match_info: str = f"{'-'*10}Week {str(weekday)}{'-'*10}\nTeam: {team[0]} vs. {team[1]}"
@@ -150,9 +146,7 @@ async def run(playwright: Playwright):
 
             # FIRST CHECK: if live match is live
             live, weekday = await match_is_live(weekday)
-            if live: 
-                loop_times += 1
-                continue
+            if live: continue
             mthTimer: datetime = datetime.strptime(await mth_timer(), "%M:%S").time()
             timeout: datetime = datetime.strptime("00:00", "%M:%S").time()
             rem_time: timedelta = timedelta(hours=mthTimer.hour, minutes=mthTimer.minute, seconds=mthTimer.second) - timedelta(
@@ -161,7 +155,6 @@ async def run(playwright: Playwright):
             if rem_time.total_seconds() < 10:
                 print(f"Too late to place Week {weekday} bet.\nWaiting for new prediction...")
                 weekday += 1
-                loop_times += 1
                 continue
             await realnaps_tab.close()
             print(match_info)
@@ -172,7 +165,7 @@ async def run(playwright: Playwright):
                 print(f'Weekday {str(weekday)} odd: {odds[0]}\nCountdown time is {str_rem_time.split(":")[2]} seconds.')
             else:
                 print(f'Weekday {str(weekday)} odd: {odds[0]}\nCountdown time is {str_rem_time.split(":")[1]}:{str_rem_time.split(":")[2]}')
-            loop_times = 1
+            
             input("End of code: ")
 
 
