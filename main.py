@@ -34,20 +34,20 @@ async def run(playwright: Playwright):
     betking_tab.set_default_timeout(default_timeout)
 
     balance_xpath: str = '//div[@class="user-balance-container"]'
+    upcoming_week_xpath: str = '//div[@class="week ng-star-inserted active"]'
     betking_virtual: str = 'https://m.betking.com/virtual/league/kings-league'
     rem_odds_xpath: str = '/../following-sibling::mvs-match-odds//div[@class="odds"]'
-    all_weeks_container_xpath: str = '//div[@class="week-container ng-star-inserted"]//child::div' 
-    upcoming_week_xpath: str = '//div[@class="week ng-star-inserted active"]' 
-    realnaps_betking: str = "https://realnaps.com/signal/premium/ultra/betking-kings-league.php"
     Betking_mth_cntdown_xpath: str = '//span[@class="countdown-timer ng-star-inserted"]'
-    live_mth_xpath: str = '//div[@class="live-badge ng-star-inserted" and contains(text(), "LIVE")]'
+    realnaps_betking: str = "https://realnaps.com/signal/premium/ultra/betking-kings-league.php"
     betslip_xpath: str = '//span[@class="title ng-star-inserted" and contains(text(), "Betslip")]'
+    all_weeks_container_xpath: str = '//div[@class="week-container ng-star-inserted"]//child::div' 
+    live_mth_xpath: str = '//div[@class="live-badge ng-star-inserted" and contains(text(), "LIVE")]'
     login_success_popup_xpath: str = '//span[@class="toast-text" and contains(text(), "Login successful")]'
     
     async def log_in_betking():
-        if betking_tab.url != betking_virtual:
-            await betking_tab.goto(betking_virtual, wait_until="load", timeout=default_timeout * 2)
-            await expect(betking_tab.locator('//loading-spinner')).to_have_attribute("style", "display: none;")
+        # if betking_tab.url != betking_virtual:
+        await betking_tab.goto(betking_virtual, wait_until="load", timeout=default_timeout * 2)
+        await expect(betking_tab.locator('//loading-spinner')).to_have_attribute("style", "display: none;")
         login_btn = betking_tab.get_by_role('button', name='LOGIN')
         not_logged_in = await login_btn.is_visible(timeout=1 * 1000)
         if not_logged_in:
@@ -176,10 +176,35 @@ async def run(playwright: Playwright):
             if str_rem_time.split(":")[1] == "00":
                 print(f'Weekday {str(rn_weekday)} odd: {odds[0]}\nCountdown time is {str_rem_time.split(":")[2]} seconds.')
             else:
-                print(f'Weekday {str(rn_weekday)} odd: {odds[0]}\nCountdown time is {str_rem_time.split(":")[1]}:{str_rem_time.split(":")[2]}')
+                print(
+                    f'Weekday {str(rn_weekday)} odd: {odds[0]}\nCountdown time is {str_rem_time.split(":")[1]}:{str_rem_time.split(":")[2]}')
+            
             await place_bet()  # Place bet
             
-            input("End of code: ")
+            print(f"Waiting for match to begin...")
+            await expect(betking_tab.locator('//div[@class="dot pending"]')).to_be_visible(timeout=default_timeout * 6)
+            print("Match started...")
+            bet_won = betking_tab.locator('//div[@class="dot won"]')
+            bet_lost = betking_tab.locator('//div[@class="dot lost"]')
+            await expect(bet_won.or_(bet_lost)).to_be_visible(timeout=default_timeout * 2) # 1 MINUTE
+            try:
+                await expect(bet_won).to_be_visible(timeout=0)
+                print(f"Match Week {str(rn_weekday)} WON!")
+                stakeAmt = 200  # Return back to initial stake amount
+            except AssertionError:
+                print(f"Match Week {str(rn_weekday)} LOST!")
+                stakeAmt *= 2  # Double the previous stake amount
+
+            await log_in_betking()  # Refresh the page
+            realnaps_tab = await context.new_page()
+            await realnaps_tab.goto(realnaps_betking, wait_until="commit")
+            if weekday != 33: weekday += 1
+            else: # STOP AT WEEKDAY 33 CUS OF LAW OF DIMINISING RETURN
+                weekday = 1
+                print(f"WEEK 33 MEANS END OF SEASON FOR US.\nWAITING FOR NEW SEASON TO BEGIN...")
+                await asyncio.sleep(60 * 15)
+                print(f"\n{'-'*10}NEW SEASON BEGINS{'-'*10}\nWAITING FOR NEW SEASON PREDICTIONS")
+            # input("End of code: ")
 
 
     
