@@ -39,20 +39,20 @@ async def run(playwright: Playwright):
     rem_odds_xpath: str = '/../following-sibling::mvs-match-odds//div[@class="odds"]'
     Betking_mth_cntdown_xpath: str = '//span[@class="countdown-timer ng-star-inserted"]'
     realnaps_betking: str = "https://realnaps.com/signal/premium/ultra/betking-kings-league.php"
+    login_form_xpath: str = '//span[@class="ng-tns-c210-2" and contains(text(), "Please Login")]'
     betslip_xpath: str = '//span[@class="title ng-star-inserted" and contains(text(), "Betslip")]'
     all_weeks_container_xpath: str = '//div[@class="week-container ng-star-inserted"]//child::div' 
     live_mth_xpath: str = '//div[@class="live-badge ng-star-inserted" and contains(text(), "LIVE")]'
     login_success_popup_xpath: str = '//span[@class="toast-text" and contains(text(), "Login successful")]'
     
     async def log_in_betking():
-        # if betking_tab.url != betking_virtual:
         await betking_tab.goto(betking_virtual, wait_until="load", timeout=default_timeout * 2)
         await expect(betking_tab.locator('//loading-spinner')).to_have_attribute("style", "display: none;")
         login_btn = betking_tab.get_by_role('button', name='LOGIN')
         not_logged_in = await login_btn.is_visible(timeout=1 * 1000)
         if not_logged_in:
             await login_btn.click()
-            await expect(betking_tab.locator('//span[contains(text(), "Please Login")]')).to_be_visible(timeout=20 * 1000)
+            await expect(betking_tab.locator(login_form_xpath)).to_be_visible(timeout=20 * 1000)
             await betking_tab.locator('//input[@formcontrolname="userName"]').fill(username)
             await betking_tab.locator('//input[@formcontrolname="password"]').fill(password)
             await betking_tab.get_by_role('button', name='LOGIN').nth(1).click()
@@ -94,10 +94,21 @@ async def run(playwright: Playwright):
         await betking_tab.get_by_test_id('coupon-totals-stake-reset').click()
         await betking_tab.get_by_test_id('coupon-totals-stake-amount-value').fill(str(stakeAmt))
         await betking_tab.locator('//span[contains(text(), "Place Bet")]').click()
+        with contextlib.suppress(AssertionError):
+            await expect(betking_tab.locator(login_form_xpath)).to_be_visible(timeout=5 * 1000)
+            print("Logged out already. Logging in...")
+            await betking_tab.locator('//input[@formcontrolname="userName"]').fill(username)
+            await betking_tab.locator('//input[@formcontrolname="password"]').fill(password)
+            await betking_tab.get_by_role('button', name='LOGIN').nth(1).click()
+            # Waits for Pop up to be visible 
+            await expect(betking_tab.locator(login_success_popup_xpath)).to_be_visible(timeout=default_timeout)
+            await expect(betking_tab.locator(balance_xpath)).to_be_visible(timeout=default_timeout)
+            print("Successfully logged in.")
+            await betking_tab.locator('//span[contains(text(), "Place Bet")]').click()
         await expect(betking_tab.locator('//span[contains(text(), "Best of luck!")]')).to_be_visible(timeout=default_timeout)
         await betking_tab.locator('//span[contains(text(), "CONTINUE BETTING")]').click()
         print("Bet Placed.")
-    
+    # //span[@class="ng-tns-c210-2"]
     async def select_team_slide():
         # Randomly select 1 of 3 slides every season 
         current_season_dot_pos: int = randint(0, 2)  # 0=1, 1=2, 2=3
@@ -145,7 +156,7 @@ async def run(playwright: Playwright):
         # WEEKDAY GAMES
         while True:
             # Get predicted team
-            await realnaps_tab.bring_to_front()
+            await realnaps_tab.bring_to_front()  # COMMENT THIS ON SERVER
             if rn_weekday != await pred_day(): continue
             
             team: list = await get_team()
@@ -169,10 +180,10 @@ async def run(playwright: Playwright):
                 print(f"For some reason, Week {rn_weekday} match is past.\nWaiting for new prediction...")
                 rn_weekday += 1
                 continue
-            await realnaps_tab.close()
+            await realnaps_tab.close()  # COMMENT THIS ON SERVER
             print(match_info)
 
-            # Should incase it not in o/u 2.5 tab, click again
+            # Should incase it not on o/u 2.5 tab, click again
             await betking_tab.get_by_test_id("o/u-2.5-market").click()
             table = betking_tab.locator(f'//div[@class="body"]').nth(1)
             odds: list = str(await table.locator(
@@ -193,7 +204,7 @@ async def run(playwright: Playwright):
             # Checking live result
             bet_won = betking_tab.locator('//div[@class="dot won"]')
             bet_lost = betking_tab.locator('//div[@class="dot lost"]')
-            await expect(bet_won.or_(bet_lost)).to_be_attached(timeout=default_timeout * 2) # Check every 1 seconds
+            await expect(bet_won.or_(bet_lost)).to_be_attached(timeout=default_timeout * 2) # 1 MINUTE
             if await bet_won.is_visible():
                 print(f"Match Week {str(rn_weekday)} WON!")
                 stakeAmt = 200  # Return back to initial stake amount
@@ -202,15 +213,14 @@ async def run(playwright: Playwright):
                 stakeAmt *= 2  # Double the previous stake amount
 
             await balance_is_visible()  # Refresh the page if not visible
-            realnaps_tab = await context.new_page()
-            await realnaps_tab.goto(realnaps_betking, wait_until="commit")
+            realnaps_tab = await context.new_page()  # COMMENT THIS ON SERVER
+            await realnaps_tab.goto(realnaps_betking, wait_until="commit")  # COMMENT THIS ON SERVER
             if rn_weekday != 33: rn_weekday += 1
             else: # STOP AT WEEKDAY 33 CUS OF LAW OF DIMINISING RETURN
                 rn_weekday = 1
                 print(f"WEEK 33 MEANS END OF SEASON FOR US.\nWAITING FOR NEW SEASON TO BEGIN...")
                 await asyncio.sleep(60 * 15)
                 print(f"\n{'-'*10}NEW SEASON BEGINS{'-'*10}\nWAITING FOR NEW SEASON PREDICTIONS")
-            # input("End of code: ")
 
 
     
