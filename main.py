@@ -163,7 +163,7 @@ async def run(playwright: Playwright):
             match_info: str = f"{'-'*10}Week {str(rn_weekday)}{'-'*10}\nTeam: {team[0]} vs. {team[1]}"
             
             await betking_tab.bring_to_front()
-            if await betking_tab.url != betking_virtual: 
+            if betking_tab.url != betking_virtual: 
                 print("Logged out! 😕 Logging in...")
                 await log_in_betking()
 
