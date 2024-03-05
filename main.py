@@ -24,7 +24,7 @@ async def run(playwright: Playwright):
         device_scale_factor = 2.625,
     )
 
-    stakeAmt = 200
+    stakeAmt = 400
     default_timeout: int = 30 * 1000
     
     betking_tab = await context.new_page()
@@ -108,7 +108,7 @@ async def run(playwright: Playwright):
         await expect(betking_tab.locator('//span[contains(text(), "Best of luck!")]')).to_be_visible(timeout=default_timeout)
         await betking_tab.locator('//span[contains(text(), "CONTINUE BETTING")]').click()
         print("Bet Placed.")
-    # //span[@class="ng-tns-c210-2"]
+    
     async def select_team_slide():
         # Randomly select 1 of 3 slides every season 
         current_season_dot_pos: int = randint(0, 2)  # 0=1, 1=2, 2=3
@@ -163,6 +163,9 @@ async def run(playwright: Playwright):
             match_info: str = f"{'-'*10}Week {str(rn_weekday)}{'-'*10}\nTeam: {team[0]} vs. {team[1]}"
             
             await betking_tab.bring_to_front()
+            if await betking_tab.url != betking_virtual: 
+                print("Logged out! 😕 Logging in...")
+                await log_in_betking()
 
             # FIRST CHECK: if live match is live
             live, rn_weekday = await match_is_live(rn_weekday)
@@ -198,7 +201,7 @@ async def run(playwright: Playwright):
             await place_bet()  # Place bet
             
             print(f"Waiting for match to begin...")
-            await expect(betking_tab.locator('//div[@class="dot pending"]')).to_be_visible(timeout=default_timeout * 6)
+            await expect(betking_tab.locator('//div[@class="dot pending"]')).to_be_attached(timeout=default_timeout * 6)
             print("Match started...")
 
             # Checking live result
