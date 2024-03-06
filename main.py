@@ -24,7 +24,7 @@ async def run(playwright: Playwright):
         device_scale_factor = 2.625,
     )
 
-    stakeAmt = 400
+    stakeAmt = 200
     default_timeout: int = 30 * 1000
     
     betking_tab = await context.new_page()
@@ -135,6 +135,11 @@ async def run(playwright: Playwright):
         bal_is_visible: bool = await betking_tab.locator('//div[@class="user-balance-container"]').is_visible()
         if not bal_is_visible: await log_in_betking()
     
+    async def cal_nxt_mth_amt() -> int:
+        if lost_prev_match:
+            return (losses + 100) / (odds[0] - 1)
+        return 200
+    
     await log_in_betking()
 
     # Opens Realnaps
@@ -149,6 +154,7 @@ async def run(playwright: Playwright):
             print(f"Old weekday {rn_weekday} prediction still displayed.\nWaiting for new prediction...")
             rn_weekday += 1
 
+    losses: int = 0
     # SEASON GAMES
     while True:
         # await select_team_slide()
@@ -197,6 +203,7 @@ async def run(playwright: Playwright):
                 print(
                     f'Weekday {str(rn_weekday)} odd: {odds[0]}\nCountdown time is {str_rem_time.split(":")[1]}:{str_rem_time.split(":")[2]}')
             
+            stakeAmt = await cal_nxt_mth_amt()
             await balance_is_visible()  # Refresh the page if not visible
             await place_bet()  # Place bet
             
@@ -210,10 +217,11 @@ async def run(playwright: Playwright):
             await expect(bet_won.or_(bet_lost)).to_be_attached(timeout=default_timeout * 2) # 1 MINUTE
             if await bet_won.is_visible():
                 print(f"Match Week {str(rn_weekday)} WON!")
-                stakeAmt = 200  # Return back to initial stake amount
+                lost_prev_match = False
             else:
                 print(f"Match Week {str(rn_weekday)} LOST!")
-                stakeAmt *= 2  # Double the previous stake amount
+                lost_prev_match = True
+                losses += stakeAmt
 
             await balance_is_visible()  # Refresh the page if not visible
             realnaps_tab = await context.new_page()  # COMMENT THIS ON SERVER
