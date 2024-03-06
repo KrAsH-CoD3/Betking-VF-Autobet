@@ -88,7 +88,7 @@ async def run(playwright: Playwright):
             return int(await realnaps_tab.inner_text('//span[@id="day"]'))
         return int(weekday_rn)
     
-    async def place_bet(): 
+    async def place_bet(stakeAmt): 
         await betking_tab.locator(f'//div[contains(text(), "{team[0]}")]{rem_odds_xpath}').nth(0).click()
         await betking_tab.locator(betslip_xpath).click()
         await betking_tab.get_by_test_id('coupon-totals-stake-reset').click()
@@ -102,10 +102,10 @@ async def run(playwright: Playwright):
             await betking_tab.get_by_role('button', name='LOGIN').nth(1).click()
             # Waits for Pop up to be visible 
             await expect(betking_tab.locator(login_success_popup_xpath)).to_be_visible(timeout=default_timeout)
-            await expect(betking_tab.locator(balance_xpath)).to_be_visible(timeout=default_timeout)
+            await expect(betking_tab.locator(balance_xpath)).to_be_attached(timeout=default_timeout)
             print("Successfully logged in.")
             await betking_tab.locator('//span[contains(text(), "Place Bet")]').click()
-        await expect(betking_tab.locator('//span[contains(text(), "Best of luck!")]')).to_be_visible(timeout=default_timeout)
+        await expect(betking_tab.locator('//span[contains(text(), "Best of luck!")]')).to_be_attached(timeout=default_timeout)
         await betking_tab.locator('//span[contains(text(), "CONTINUE BETTING")]').click()
         print("Bet Placed.")
     
@@ -205,7 +205,7 @@ async def run(playwright: Playwright):
             
             stakeAmt = await cal_nxt_mth_amt()
             await balance_is_visible()  # Refresh the page if not visible
-            await place_bet()  # Place bet
+            await place_bet(stakeAmt)  # Place bet
             
             print(f"Waiting for match to begin...")
             await expect(betking_tab.locator('//div[@class="dot pending"]')).to_be_attached(timeout=default_timeout * 6)
