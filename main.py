@@ -79,13 +79,14 @@ async def run(playwright: Playwright):
         return timer.strip()
     
     async def pred_day() -> int: 
+        print("Waiting for predictions...")
         weekday_rn: str = await realnaps_tab.inner_text('//span[@id="day"]')
         if weekday_rn == '...':
-            print("Waiting for predictions...")
             await expect(realnaps_tab.locator('//span[@id="day"]')
                         ).not_to_contain_text('...', timeout=default_timeout * 2)
             print(f"Prediction displayed.")
             return int(await realnaps_tab.inner_text('//span[@id="day"]'))
+        print(f"Prediction displayed.")
         return int(weekday_rn)
     
     async def place_bet(stakeAmt): 
@@ -137,7 +138,7 @@ async def run(playwright: Playwright):
     
     async def cal_nxt_mth_amt() -> int:
         if lost_prev_match:
-            return (losses + 100) / (odds[0] - 1)
+            return (losses + 100) / (round(float(odds[0]), 2) - 1)
         return 200
     
     await log_in_betking()
@@ -154,7 +155,9 @@ async def run(playwright: Playwright):
             print(f"Old weekday {rn_weekday} prediction still displayed.\nWaiting for new prediction...")
             rn_weekday += 1
 
-    losses: int = 0
+    losses: int = 0  # Default should be 0
+    lost_prev_match = False  # Default should be False
+
     # SEASON GAMES
     while True:
         # await select_team_slide()
@@ -162,7 +165,7 @@ async def run(playwright: Playwright):
         # WEEKDAY GAMES
         while True:
             # Get predicted team
-            await realnaps_tab.bring_to_front()  # COMMENT THIS ON SERVER
+            # await realnaps_tab.bring_to_front()  # COMMENT THIS ON SERVER
             if rn_weekday != await pred_day(): continue
             
             team: list = await get_team()
@@ -189,7 +192,7 @@ async def run(playwright: Playwright):
                 print(f"For some reason, Week {rn_weekday} match is past.\nWaiting for new prediction...")
                 rn_weekday += 1
                 continue
-            await realnaps_tab.close()  # COMMENT THIS ON SERVER
+            # await realnaps_tab.close()  # COMMENT THIS ON SERVER
             print(match_info)
 
             # Should incase it not on o/u 2.5 tab, click again
@@ -218,14 +221,15 @@ async def run(playwright: Playwright):
             if await bet_won.is_visible():
                 print(f"Match Week {str(rn_weekday)} WON!")
                 lost_prev_match = False
+                losses = 0
             else:
                 print(f"Match Week {str(rn_weekday)} LOST!")
                 lost_prev_match = True
                 losses += stakeAmt
 
             await balance_is_visible()  # Refresh the page if not visible
-            realnaps_tab = await context.new_page()  # COMMENT THIS ON SERVER
-            await realnaps_tab.goto(realnaps_betking, wait_until="commit")  # COMMENT THIS ON SERVER
+            # realnaps_tab = await context.new_page()  # COMMENT THIS ON SERVER
+            # await realnaps_tab.goto(realnaps_betking, wait_until="commit")  # COMMENT THIS ON SERVER
             if rn_weekday != 33: rn_weekday += 1
             else: # STOP AT WEEKDAY 33 CUS OF LAW OF DIMINISING RETURN
                 rn_weekday = 1
