@@ -223,10 +223,10 @@ async def run(playwright: Playwright):
             print(f"Waiting for match to begin...")
             await expect(betking_tab.locator(live_checker_xpath+'//div[@class="pie"]')).not_to_be_attached(timeout=default_timeout * 6)
             print("Match started...")
-            await asyncio.sleep(5)
             # Incase displayed live match is not on the staked match 
             live_mth = betking_tab.locator(live_mths_container+f'//span[contains(text(), "{team[0]}")]')
-            await live_mth.scroll_into_view_if_needed() # live_checker_xpath+'//div[@class="pie"]'
+            await expect(live_mth).to_be_attached(timeout=default_timeout)
+            await live_mth.scroll_into_view_if_needed()
             await live_mth.click()
             await expect(live_mth).to_be_visible(timeout=default_timeout)
 
@@ -235,7 +235,7 @@ async def run(playwright: Playwright):
                 home_score = await betking_tab.locator('//div[@class="home"]//child::*').count()
                 away_score = await betking_tab.locator('//div[@class="away"]//child::*').count()
                 try:
-                    await expect(betking_tab.locator(live_dot_xpath)).to_be_visible(timeout=0) # IMMEDIATELY
+                    await expect(betking_tab.locator(live_dot_xpath)).to_be_visible(timeout=1000) # IMMEDIATELY
                     if (home_score + away_score) > 2:
                         print(f"Match Week {str(rn_weekday)} WON!")
                         lost_prev_match = False
@@ -248,7 +248,7 @@ async def run(playwright: Playwright):
                     losses += stakeAmt
                     break
 
-            await balance_is_visible()  # Refresh the page if not visible
+            await log_in_betking()  # Refresh the page if not visible
             # realnaps_tab = await context.new_page()  # COMMENT THIS ON SERVER
             # await realnaps_tab.goto(realnaps_betking, wait_until="commit")  # COMMENT THIS ON SERVER
             if rn_weekday != 33: rn_weekday += 1
