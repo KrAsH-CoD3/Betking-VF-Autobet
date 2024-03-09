@@ -32,15 +32,14 @@ async def run(playwright: Playwright):
 
     # Opens Realnaps
     await realnaps_tab.goto(realnaps_betking, wait_until="commit")
+    with contextlib.suppress():    
+        await realnaps_tab.locator('//p[contains(text(), "Consent")]').click()
     
     async def get_team() -> list:
         hometeam: str = await realnaps_tab.inner_text('//div[@id="homeTxt" and @class="col"]')
         awayteam: str = await realnaps_tab.inner_text('//div[@id="awayTxt" and @class="col"]')
         return [hometeam, awayteam] 
     
-    async def click_dot_position(position):
-        await realnaps_tab.locator(f'//a[contains(text(), "{str(position)}")]').click()
-
     async def pred_day() -> int: 
         weekday: str = await realnaps_tab.inner_text('//span[@id="day"]')
         if weekday == '...':
@@ -55,18 +54,11 @@ async def run(playwright: Playwright):
     while True:
         weekday: int = await pred_day()
         for slideno in range(3):
-            await click_dot_position(slideno)
+            if slideno != 0: 
+                await realnaps_tab.locator(f'//a[contains(text(), "{slideno+1}")]').click()
+                if slideno == 2:
+                    await realnaps_tab.locator(f'//a[contains(text(), "{1}")]').click()
             teams[f"team{slideno+1}"] = await get_team()
-            # await realnaps_tab.locator('')
-            # if slideno == 0:
-            #     team1: list = await get_team()
-            # elif slideno == 1:
-            #     await click_dot_position(slideno)
-            #     team2: list = await get_team()
-            # elif slideno == 2: 
-            #     await click_dot_position(slideno)
-            #     team3: list = await get_team()
-            #     await click_dot_position(0)  # Go back to teamslide 1
         print(f"Weekday {str(weekday)}")
         for key, value in teams.items():
             print(f"{key}: {value[0]} vs {value[1]}")
