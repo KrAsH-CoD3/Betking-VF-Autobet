@@ -24,7 +24,7 @@ async def run(playwright: Playwright):
         device_scale_factor = 2.625,
     )
 
-    stakeAmt = 200  # GOTO cal_nxt_mth_amt() and set ypur desired Amt
+    stakeAmt = 200 
     default_timeout: int = 30 * 1000
     
     betking_tab = await context.new_page()
@@ -72,8 +72,7 @@ async def run(playwright: Playwright):
         return [hometeam, awayteam] 
     
     async def dot_position(position):
-        if position == 0: return realnaps_tab.locator(f'//a[@class="swift bg-dark" and @name="{position}"]')
-        return realnaps_tab.locator(f'//a[@class="swift" and @name="{position}"]')
+        return realnaps_tab.locator(f'//a[contains(text(), "{position}")]')
 
     async def mth_timer() -> str:
         betking_tab.set_default_timeout(0)
