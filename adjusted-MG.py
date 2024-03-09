@@ -24,7 +24,7 @@ async def run(playwright: Playwright):
         device_scale_factor = 2.625,
     )
 
-    stakeAmt = 50
+    stakeAmt = 200  # GOTO cal_nxt_mth_amt() and set ypur desired Amt
     default_timeout: int = 30 * 1000
     
     betking_tab = await context.new_page()
@@ -112,7 +112,7 @@ async def run(playwright: Playwright):
             await betking_tab.locator('//span[contains(text(), "Place Bet")]').click()
         await expect(betking_tab.locator('//span[contains(text(), "Best of luck!")]')).to_be_attached(timeout=default_timeout)
         await betking_tab.locator('//span[contains(text(), "CONTINUE BETTING")]').click()
-        print("Bet Placed.")
+        print(f"Bet Placed. Placed Amount= {stakeAmt}")
     
     async def select_team_slide():
         # Randomly select 1 of 3 slides every season 
@@ -228,6 +228,8 @@ async def run(playwright: Playwright):
             await expect(live_mth).to_be_attached(timeout=default_timeout)
             await live_mth.scroll_into_view_if_needed()
             await live_mth.click()
+            # Scroll up by 1000 pixels
+            await betking_tab.mouse.wheel(0, -1000)
             await expect(live_mth).to_be_visible(timeout=default_timeout)
 
             while True:
@@ -248,7 +250,11 @@ async def run(playwright: Playwright):
                     losses += stakeAmt
                     break
 
-            await log_in_betking()  # Refresh the page if not visible
+            # await log_in_betking()  # Refresh the page if not visible
+            await betking_tab.goto(betking_virtual, wait_until="load", timeout=default_timeout * 2)
+            await expect(betking_tab.locator('//loading-spinner')).to_have_attribute("style", "display: none;")
+            await betking_tab.get_by_test_id("o/u-2.5-market").click()
+            
             # realnaps_tab = await context.new_page()  # COMMENT THIS ON SERVER
             # await realnaps_tab.goto(realnaps_betking, wait_until="commit")  # COMMENT THIS ON SERVER
             if rn_weekday != 33: rn_weekday += 1
