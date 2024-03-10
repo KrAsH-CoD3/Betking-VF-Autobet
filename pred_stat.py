@@ -8,7 +8,7 @@ from playwright.async_api import async_playwright, Playwright, expect
 
 load_dotenv(override=True)
 async def run(playwright: Playwright):
-    profile: str = "Betking-VF-profile"
+    profile: str = "Betking-VF-result-profile"
     current_working_dir: str = os.getcwd()
     user_data_path: str = os.path.join(current_working_dir, profile)
 
