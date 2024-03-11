@@ -52,7 +52,7 @@ async def run(playwright: Playwright):
 
     # Opens Realnaps
     await realnaps_tab.goto(realnaps_betking, wait_until="commit")
-    with contextlib.suppress(): await realnaps_tab.locator('//p[contains(text(), "Consent")]').click()
+    with contextlib.suppress(TimeoutError): await realnaps_tab.locator('//p[contains(text(), "Consent")]').click(timeout=10 * 1000)
 
     season_teams: dict = {}
     teams: dict = {}
