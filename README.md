@@ -1,2 +1,5 @@
 # Betking-VF-Autobet
-A repo which bet on virtual football base on prediction. 
+This repo bet on virtual football sport bet base on [Realnaps] prediction. 
+
+
+[Realnaps]: <https://realnaps.com/>
