@@ -1,10 +1,7 @@
-from random import randint
-from dotenv import load_dotenv
-import asyncio, os, contextlib, ast
-from os import environ as env_variable
-from datetime import datetime, timedelta
-from playwright._impl._errors import TimeoutError
 from playwright.async_api import async_playwright, Playwright, expect
+from playwright._impl._errors import TimeoutError
+import asyncio, os, contextlib
+from dotenv import load_dotenv
 
 load_dotenv(override=True)
 async def run(playwright: Playwright):
