@@ -1,10 +1,9 @@
-from random import randint
-from dotenv import load_dotenv
-import asyncio, os, contextlib, ast
-from os import environ as env_variable
-from datetime import datetime, timedelta
-from playwright._impl._errors import TimeoutError
 from playwright.async_api import async_playwright, Playwright, expect
+from datetime import datetime, timedelta
+from os import environ as env_variable
+import asyncio, os, contextlib
+from dotenv import load_dotenv
+from random import randint
 
 load_dotenv(override=True)
 async def run(playwright: Playwright):
@@ -37,7 +36,7 @@ async def run(playwright: Playwright):
     live_mths_container: str = '//div[@class="matches ng-star-inserted"]'
     live_clock_xpath: str = '//span[@class="live-icon ng-star-inserted"]'
     upcoming_week_xpath: str = '//div[@class="week ng-star-inserted active"]'
-    betking_virtual: str = 'https://m.betking.com/virtual/league/kings-league'
+    betking_virtual_link: str = 'https://m.betking.com/virtual/league/kings-league'
     live_timer_FT_xpath: str = '//span[@class="timer" and contains(text(), "FT")]'
     rem_odds_xpath: str = '/../following-sibling::mvs-match-odds//div[@class="odds"]'
     Betking_mth_cntdown_xpath: str = '//span[@class="countdown-timer ng-star-inserted"]'
@@ -51,7 +50,7 @@ async def run(playwright: Playwright):
     login_success_popup_xpath: str = '//span[@class="toast-text" and contains(text(), "Login successful")]'
     
     async def log_in_betking():
-        await betking_tab.goto(betking_virtual, wait_until="load", timeout=default_timeout * 2)
+        await betking_tab.goto(betking_virtual_link, wait_until="load", timeout=default_timeout * 2)
         await expect(betking_tab.locator('//loading-spinner')).to_have_attribute("style", "display: none;")
         login_btn = betking_tab.get_by_role('button', name='LOGIN')
         not_logged_in = await login_btn.is_visible(timeout=1 * 1000)
@@ -182,7 +181,7 @@ async def run(playwright: Playwright):
             match_info: str = f"{'-'*10}Week {str(rn_weekday)}{'-'*10}\nTeam: {team[0]} vs. {team[1]}"
             
             await betking_tab.bring_to_front()
-            if betking_tab.url != betking_virtual: 
+            if betking_tab.url != betking_virtual_link: 
                 print("Logged out! 😕 Logging in...")
                 await log_in_betking()
 
@@ -251,7 +250,7 @@ async def run(playwright: Playwright):
                     break
 
             # await log_in_betking()  # Refresh the page if not visible
-            await betking_tab.goto(betking_virtual, wait_until="load", timeout=default_timeout * 2)
+            await betking_tab.goto(betking_virtual_link, wait_until="load", timeout=default_timeout * 2)
             await expect(betking_tab.locator('//loading-spinner')).to_have_attribute("style", "display: none;")
             await betking_tab.get_by_test_id("o/u-2.5-market").click()
             
